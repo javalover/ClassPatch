@@ -64,9 +64,9 @@ import dalvik.system.DexFile;
  */
 
 
-public final class MultiDex {
+public final class PatchDex {
 
-    public static final String TAG = "MultiDex";
+    public static final String TAG = "PatchDex";
 
     private static final String OLD_SECONDARY_FOLDER_NAME = "secondary-dexes";
 
@@ -89,7 +89,7 @@ public final class MultiDex {
     private static final List<File> dexFiles = new ArrayList<File>();
 
 
-    private MultiDex() {
+    private PatchDex() {
     }
 
 
@@ -205,7 +205,12 @@ public final class MultiDex {
                         while (classNames.hasMoreElements()) {
                             String className = classNames.nextElement();
                             try {
+                                // 由于ClassLoader采用双亲委托机制，所以如果已经加载的class,
+                                // 会从父classloader中获得，这个时候，patch实时生效功能就会失效
                                 Class<?> clazz = classLoader.loadClass(className);
+                                if (clazz != null) {
+                                    Log.d(TAG, clazz.getName());
+                                }
                             } catch (ClassNotFoundException e) {
                                 continue;
                             }
@@ -231,7 +236,7 @@ public final class MultiDex {
      * Patches the application context class loader by appending extra dex files
      * loaded from the application apk. This method should be called in the
      * attachBaseContext of your {@link Application}, see
-     * {@link MultiDexApplication} for more explanation and an example.
+     * {@link PatchDexApplication} for more explanation and an example.
      *
      * @param context application context.
      * @throws RuntimeException if an error occurred preventing the classloader
@@ -240,7 +245,7 @@ public final class MultiDex {
     public static void install(Context context) {
         Log.i(TAG, "install");
         if (IS_VM_MULTIDEX_CAPABLE) {
-            Log.i(TAG, "VM has multidex support, MultiDex support library is disabled.");
+            Log.i(TAG, "VM has multidex support, PatchDex support library is disabled.");
             return;
         }
 
@@ -264,7 +269,7 @@ public final class MultiDex {
                 installedApk.add(apkPath);
 
                 if (Build.VERSION.SDK_INT > MAX_SUPPORTED_SDK_VERSION) {
-                    Log.w(TAG, "MultiDex is not guaranteed to work in SDK version "
+                    Log.w(TAG, "PatchDex is not guaranteed to work in SDK version "
                             + Build.VERSION.SDK_INT + ": SDK version higher than "
                             + MAX_SUPPORTED_SDK_VERSION + " should be backed by "
                             + "runtime with built-in multidex capabilty but it's not the "
@@ -300,19 +305,19 @@ public final class MultiDex {
                 try {
                     clearOldDexDir(context);
                 } catch (Throwable t) {
-                    Log.w(TAG, "Something went wrong when trying to clear old MultiDex extraction, "
+                    Log.w(TAG, "Something went wrong when trying to clear old PatchDex extraction, "
                             + "continuing without cleaning.", t);
                 }
 
                 File dexDir = new File(applicationInfo.dataDir, SECONDARY_FOLDER_NAME);
 
-                List<File> files = MultiDexExtractor.load(context, applicationInfo, dexDir, false);
+                List<File> files = PatchDexExtractor.load(context, applicationInfo, dexDir, false);
                 if (checkValidZipFiles(files)) {
                     installSecondaryDexes(loader, dexDir, files);
                 } else {
                     Log.w(TAG, "Files were not valid zip files.  Forcing a reload.");
                     // Try again, but this time force a reload of the zip file.
-                    files = MultiDexExtractor.load(context, applicationInfo, dexDir, true);
+                    files = PatchDexExtractor.load(context, applicationInfo, dexDir, true);
                     if (checkValidZipFiles(files)) {
                         installSecondaryDexes(loader, dexDir, files);
                     } else {
@@ -404,7 +409,7 @@ public final class MultiDex {
      */
     private static boolean checkValidZipFiles(List<File> files) {
         for (File file : files) {
-            if (!MultiDexExtractor.verifyZipFile(file)) {
+            if (!PatchDexExtractor.verifyZipFile(file)) {
                 return false;
             }
         }

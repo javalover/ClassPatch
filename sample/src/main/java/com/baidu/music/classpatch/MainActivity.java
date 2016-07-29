@@ -1,6 +1,7 @@
 package com.baidu.music.classpatch;
 
 import android.content.Context;
+import android.content.Intent;
 import android.os.Bundle;
 import android.os.Environment;
 import android.support.design.widget.FloatingActionButton;
@@ -14,7 +15,7 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.Toast;
 
-import com.baidu.music.classlib.dex.MultiDex;
+import com.baidu.music.classlib.dex.PatchDex;
 import com.baidu.music.classlib.jni.HookBridge;
 import com.baidu.music.classlib.listener.FileOperatorListener;
 import com.baidu.music.classlib.manager.HookManager;
@@ -35,7 +36,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         @Override
         public void notifyCompleted() {
             Toast.makeText(mContext, "复制成功",Toast.LENGTH_SHORT).show();
-            MultiDex.addAllDexFile(mContext,
+            PatchDex.addAllDexFile(mContext,
                     HookManager.getInstance().getPatchDir(mContext).getAbsolutePath(),
                     HookManager.getInstance().getPatchOptDir(mContext).getAbsolutePath(), true);
         }
@@ -52,8 +53,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         mContext = this;
         String apkPath = HookManager.getInstance().getPatchDir(mContext).getAbsolutePath() + File.separator + "DexTest.apk";
         PatchResource patchResource = ResourceManager.getInstance().getPatchResource(mContext, apkPath);
-        int resId = patchResource.getResApkLayoutId("activity_main");
-        if (resId <= 0) {
+        View resId = patchResource.getResApkLayoutView(this, "activity_main");
+        if (resId == null) {
             setContentView(R.layout.activity_main);
         } else {
             setContentView(resId);
@@ -129,7 +130,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 nativeHookButtonClicked();
                 break;
             case R.id.fab:
-                Snackbar.make(v, "the class come from Main Dex", Snackbar.LENGTH_LONG)
+                Snackbar.make(v, "the class come from Patch Dex", Snackbar.LENGTH_LONG)
                         .setAction("Action", null).show();
                 break;
             case R.id.copyFile:
@@ -137,6 +138,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                         + File.separator + "ClassPatch"
                         + File.separator + "DexTest.apk";
                 HookManager.getInstance().copyFile(mContext, patch, listener);
+                Intent intent = new Intent(mContext, SecondActivity.class);
+                startActivity(intent);
                 break;
             default:
                 break;
@@ -179,12 +182,13 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
-                HookBridge.hookNativeMethod("libcommonHook.so", soPath, "testString", "testString");
+                HookBridge.hookNativeMethod("libcommonHook.so", "libpatch.so", "testString", "testString");
             }
 
             @Override
             public void notifyError(int errorCode) {
-                Toast.makeText(mContext, "copy so error",Toast.LENGTH_SHORT).show();
+//                Toast.makeText(mContext, "copy so error",Toast.LENGTH_SHORT).show();
+                HookBridge.hookNativeMethod("libcommonHook.so", "libpatch.so", "testString", "testString");
             }
         });
     }
@@ -197,6 +201,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         } catch (NoSuchMethodException e) {
             e.printStackTrace();
         }
-        Toast.makeText(MainActivity.this, DexTest.getStringStatic(1024, " from aa "), Toast.LENGTH_SHORT).show();
+        Toast.makeText(MainActivity.this, DexTest.getStringStatic("das", " from aa "), Toast.LENGTH_SHORT).show();
     }
 }
